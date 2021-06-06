@@ -86,7 +86,6 @@ loadData().then(data => {
     updateScatterPlot();
 
     function highlightRegion(id){
-        console.log(id);
         if (highlighted != id){
             highlighted = id;
             d3.selectAll('rect').style("opacity", "0.3");
