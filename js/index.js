@@ -46,6 +46,11 @@ const colorScale = d3.scaleOrdinal().range(['#DD4949', '#39CDA1', '#FD710C', '#A
 const radiusScale = d3.scaleSqrt().range([10, 30]);
 const colorMap = {'asia': '#DD4949', 'europe': '#39CDA1', 'africa': '#FD710C', 'americas': '#A14BE5'};
 
+const regions = ['asia', 'europe', 'africa', 'americas'];
+let regionData = {};
+let barData = [];
+let countryCount = {};
+
 loadData().then(data => {
 
     colorScale.domain(d3.set(data.map(d=>d.region)).values());
@@ -53,23 +58,23 @@ loadData().then(data => {
     d3.select('#range').on('change', function(){ 
         year = d3.select(this).property('value');
         yearLable.html(year);
-        updateScattePlot();
+        updateScatterPlot();
         updateBar();
     });
 
     d3.select('#radius').on('change', function(){ 
         rParam = d3.select(this).property('value');
-        updateScattePlot();
+        updateScatterPlot();
     });
 
     d3.select('#x').on('change', function(){ 
         xParam = d3.select(this).property('value');
-        updateScattePlot();
+        updateScatterPlot();
     });
 
     d3.select('#y').on('change', function(){ 
         yParam = d3.select(this).property('value');
-        updateScattePlot();
+        updateScatterPlot();
     });
 
     d3.select('#param').on('change', function(){ 
@@ -77,19 +82,75 @@ loadData().then(data => {
         updateBar();
     });
 
-    function updateBar(){}
+    updateBar();
+    updateScatterPlot();
 
+    function updateBar(){
+        barChart.selectAll("g, rect").remove()
 
-    function updateScattePlot(){
+        for (let r in regions){ countryCount[regions[r]] = 0; }
+        for (let idx in data){ countryCount[data[idx].region] += 1; }
+        for (let r in regions) { regionData[regions[r]] = 0; }
+        for (let idx in data)
+        {
+            let p = parseFloat(data[idx][param][year]);
+            if (isNaN(p)){
+                countryCount[data[idx].region] -= 1;
+            } else {
+                regionData[data[idx].region] += p;
+            }
+        }
+
+        barData = [];
+        for (let r in regions) {
+            regionData[regions[r]] = regionData[regions[r]] / countryCount[regions[r]];
+            barData.push({
+               'region': regions[r],
+               'mean': regionData[regions[r]]
+            });
+        }
+
+        let xScaler = d3.scaleBand()
+            .range([margin*2, barWidth-margin]).padding(0.1)
+            .domain(regions);
+
+        let yScaler = d3.scaleLinear()
+            .range([height-margin, margin])
+            .domain([0, d3.max(barData, function(d) { return +d.mean; })]);
+
+        console.log(barData);
+        barChart.append('g')
+            .attr('transform', `translate(0, ${height-margin})`)
+            .call(d3.axisBottom(xScaler))
+
+        barChart.append('g')
+            .attr('transform', `translate(${margin*2}, 0)`)
+            .call(d3.axisLeft(yScaler))
+
+        barChart
+            .selectAll(".bar")
+            .data(barData)
+            .enter()
+            .append("rect")
+            .attr("x", function (d) { return xScaler(d.region); } )
+            .attr("y", function (d) { return yScaler(d.mean) - margin; } )
+            .attr("width", xScaler.bandwidth())
+            .attr("height", function(d) { return height - yScaler(d.mean); })
+            .style("fill", function (d) { return colorMap[d.region]; })
+            .style("opacity", "1")
+
+    }
+
+    function updateScatterPlot(){
 
         scatterPlot.selectAll('g').remove();
         let xRange = [d3.min(data, function(d) { return +d[xParam][year]; }), d3.max(data, function(d) { return +d[xParam][year]; })];
         let yRange = [d3.min(data, function(d) { return +d[yParam][year]; }), d3.max(data, function(d) { return +d[yParam][year]; })];
         let rRange = [d3.min(data, function(d) { return +d[rParam][year]; }), d3.max(data, function(d) { return +d[rParam][year]; })];
 
-        xScaler = x.domain(xRange);
-        yScaler = y.domain(yRange);
-        rScaler = radiusScale.domain(rRange);
+        let xScaler = x.domain(xRange);
+        let yScaler = y.domain(yRange);
+        let rScaler = radiusScale.domain(rRange);
 
         scatterPlot.append('g')
             .attr('transform', `translate(0, ${height-margin})`)
@@ -112,8 +173,6 @@ loadData().then(data => {
 
     }
 
-    updateBar();
-    updateScattePlot();
 });
 
 
