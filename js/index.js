@@ -85,6 +85,25 @@ loadData().then(data => {
     updateBar();
     updateScatterPlot();
 
+    function highlightRegion(id){
+        console.log(id);
+        if (highlighted != id){
+            highlighted = id;
+            d3.selectAll('rect').style("opacity", "0.3");
+            d3.selectAll('circle').style("opacity", "0");
+
+            d3.select("#" + id).style("opacity", "1");
+
+            let selectedRegion = id.slice(0, -4);
+            d3.selectAll("circle[region='" + selectedRegion + "']").style("opacity", "1");
+
+        } else {
+            highlighted = "";
+            d3.selectAll('rect').style("opacity", "1");
+            d3.selectAll('circle').style("opacity", "1");
+        }
+    }
+
     function updateBar(){
         barChart.selectAll("g, rect").remove()
 
@@ -118,7 +137,6 @@ loadData().then(data => {
             .range([height-margin, margin])
             .domain([0, d3.max(barData, function(d) { return +d.mean; })]);
 
-        console.log(barData);
         barChart.append('g')
             .attr('transform', `translate(0, ${height-margin})`)
             .call(d3.axisBottom(xScaler))
@@ -132,12 +150,14 @@ loadData().then(data => {
             .data(barData)
             .enter()
             .append("rect")
+            .attr("id", function (d) {return d.region + "_bar"; } )
             .attr("x", function (d) { return xScaler(d.region); } )
             .attr("y", function (d) { return yScaler(d.mean) - margin; } )
             .attr("width", xScaler.bandwidth())
             .attr("height", function(d) { return height - yScaler(d.mean); })
             .style("fill", function (d) { return colorMap[d.region]; })
             .style("opacity", "1")
+            .on('click', function() { highlightRegion(this.id); } )
 
     }
 
@@ -169,6 +189,7 @@ loadData().then(data => {
             .attr("cx", function (d) { return xScaler(d[xParam][year]); } )
             .attr("cy", function (d) { return yScaler(d[yParam][year]); } )
             .attr("r", function (d) { return rScaler(d[rParam][year]); })
+            .attr("region", function (d) { return d.region; } )
             .style("fill", function (d) { return colorMap[d.region]; })
 
     }
