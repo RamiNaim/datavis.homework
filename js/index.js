@@ -44,6 +44,7 @@ const yBarAxis = barChart.append('g').attr('transform', `translate(${margin*2}, 
 
 const colorScale = d3.scaleOrdinal().range(['#DD4949', '#39CDA1', '#FD710C', '#A14BE5']);
 const radiusScale = d3.scaleSqrt().range([10, 30]);
+const colorMap = {'asia': '#DD4949', 'europe': '#39CDA1', 'africa': '#FD710C', 'americas': '#A14BE5'};
 
 loadData().then(data => {
 
@@ -76,12 +77,39 @@ loadData().then(data => {
         updateBar();
     });
 
-    function updateBar(){
-        return;
-    }
+    function updateBar(){}
+
 
     function updateScattePlot(){
-        return;
+
+        scatterPlot.selectAll('g').remove();
+        let xRange = [d3.min(data, function(d) { return +d[xParam][year]; }), d3.max(data, function(d) { return +d[xParam][year]; })];
+        let yRange = [d3.min(data, function(d) { return +d[yParam][year]; }), d3.max(data, function(d) { return +d[yParam][year]; })];
+        let rRange = [d3.min(data, function(d) { return +d[rParam][year]; }), d3.max(data, function(d) { return +d[rParam][year]; })];
+
+        xScaler = x.domain(xRange);
+        yScaler = y.domain(yRange);
+        rScaler = radiusScale.domain(rRange);
+
+        scatterPlot.append('g')
+            .attr('transform', `translate(0, ${height-margin})`)
+            .call(d3.axisBottom(x));
+
+        scatterPlot.append('g')
+            .attr('transform', `translate(${margin*2}, 0)`)
+            .call(d3.axisLeft(y));
+
+        scatterPlot
+            .append("g")
+            .selectAll("circle")
+            .data(data)
+            .enter()
+            .append('circle')
+            .attr("cx", function (d) { return xScaler(d[xParam][year]); } )
+            .attr("cy", function (d) { return yScaler(d[yParam][year]); } )
+            .attr("r", function (d) { return rScaler(d[rParam][year]); })
+            .style("fill", function (d) { return colorMap[d.region]; })
+
     }
 
     updateBar();
