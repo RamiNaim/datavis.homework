@@ -116,7 +116,7 @@ loadData().then(data => {
     }
 
     function updateBar(){
-        barChart.selectAll("g, rect").remove()
+        barChart.selectAll("rect").remove()
 
         for (let r in regions){ countryCount[regions[r]] = 0; }
         for (let idx in data){ countryCount[data[idx].region] += 1; }
@@ -140,21 +140,11 @@ loadData().then(data => {
             });
         }
 
-        let xScaler = d3.scaleBand()
-            .range([margin*2, barWidth-margin]).padding(0.1)
-            .domain(regions);
+        xBar.domain(regions);
+        yBar.domain([0, d3.max(barData, function(d) { return +d.mean; })]);
 
-        let yScaler = d3.scaleLinear()
-            .range([height-margin, margin])
-            .domain([0, d3.max(barData, function(d) { return +d.mean; })]);
-
-        barChart.append('g')
-            .attr('transform', `translate(0, ${height-margin})`)
-            .call(d3.axisBottom(xScaler))
-
-        barChart.append('g')
-            .attr('transform', `translate(${margin*2}, 0)`)
-            .call(d3.axisLeft(yScaler))
+        xBarAxis.call(d3.axisBottom(xBar))
+        yBarAxis.call(d3.axisLeft(yBar))
 
         barChart
             .selectAll(".bar")
@@ -162,10 +152,10 @@ loadData().then(data => {
             .enter()
             .append("rect")
             .attr("id", function (d) {return d.region + "_bar"; } )
-            .attr("x", function (d) { return xScaler(d.region); } )
-            .attr("y", function (d) { return yScaler(d.mean) - margin; } )
-            .attr("width", xScaler.bandwidth())
-            .attr("height", function(d) { return height - yScaler(d.mean); })
+            .attr("x", function (d) { return xBar(d.region); } )
+            .attr("y", function (d) { return yBar(d.mean) - margin; } )
+            .attr("width", xBar.bandwidth())
+            .attr("height", function(d) { return height - yBar(d.mean); })
             .style("fill", function (d) { return colorMap[d.region]; })
             .style("opacity", "1")
             .on('click', function() { highlightRegion(this.id); } )
@@ -173,32 +163,29 @@ loadData().then(data => {
     }
 
     function updateScatterPlot(){
+        selectedCountry = "";
 
-        scatterPlot.selectAll('g').remove();
+        scatterPlot.selectAll('circle').remove();
+
         let xRange = [d3.min(data, function(d) { return +d[xParam][year]; }), d3.max(data, function(d) { return +d[xParam][year]; })];
         let yRange = [d3.min(data, function(d) { return +d[yParam][year]; }), d3.max(data, function(d) { return +d[yParam][year]; })];
         let rRange = [d3.min(data, function(d) { return +d[rParam][year]; }), d3.max(data, function(d) { return +d[rParam][year]; })];
 
-        let xScaler = x.domain(xRange);
-        let yScaler = y.domain(yRange);
         let rScaler = radiusScale.domain(rRange);
 
-        scatterPlot.append('g')
-            .attr('transform', `translate(0, ${height-margin})`)
-            .call(d3.axisBottom(x));
+        x.domain(xRange);
+        y.domain(yRange);
 
-        scatterPlot.append('g')
-            .attr('transform', `translate(${margin*2}, 0)`)
-            .call(d3.axisLeft(y));
+        xAxis.call(d3.axisBottom(x))
+        yAxis.call(d3.axisLeft(y))
 
         scatterPlot
-            .append("g")
             .selectAll("circle")
             .data(data)
             .enter()
             .append('circle')
-            .attr("cx", function (d) { return xScaler(d[xParam][year]); } )
-            .attr("cy", function (d) { return yScaler(d[yParam][year]); } )
+            .attr("cx", function (d) { return x(d[xParam][year]); } )
+            .attr("cy", function (d) { return y(d[yParam][year]); } )
             .attr("r", function (d) { return rScaler(d[rParam][year]); })
             .attr("region", function (d) { return d.region; } )
             .attr("country", function (d) { return d.country; } )
@@ -216,13 +203,16 @@ loadData().then(data => {
         }
 
         if (selected == ""){
-            if (that == null){ return; }
+            d3.select('#line-selector').style('display', 'none');
+            if (that == null){
+                return;
+            }
             selected = that;
             selectedCountry = that.attributes.country.nodeValue;
         }
 
         countryName.text("");
-        lineChart.selectAll("g, path").remove();
+        lineChart.selectAll("path").remove();
 
         countryName.text(selectedCountry);
 
@@ -230,7 +220,7 @@ loadData().then(data => {
         d3.selectAll('circle').style("stroke-width", 1);
 
         d3.select(selected)
-            .moveToFront()
+            .raise()
             .style("stroke", '#000000')
             .style("stroke-width", 2);
 
@@ -238,10 +228,10 @@ loadData().then(data => {
         let countryData = [];
         for (let idx in data){
             if (data[idx].country == selectedCountry){
-                for (year in data[idx][lineParam]) {
-                    let val = parseFloat(data[idx][lineParam][year]);
+                for (let y in data[idx][lineParam]) {
+                    let val = parseFloat(data[idx][lineParam][y]);
                     // let date = d3.timeParse("%Y-%m-%d")(year + "-01-01")
-                    let date = parseInt(year, 10)
+                    let date = parseInt(y, 10)
                     if  (!isNaN(val) && !isNaN(date)){
                         countryData.push({
                             'year': date,
@@ -256,24 +246,11 @@ loadData().then(data => {
         let xRange = [d3.min(countryData, function(d) { return d.year; }), d3.max(countryData, function(d) { return d.year; })];
         let yRange = [0, d3.max(countryData, function(d) { return +d.value; })];
 
-        let xScaler = d3.scaleLinear()
-            .range([margin*2, width-margin])
-            .domain(xRange);
+        x.domain(xRange)
+        y.domain(yRange)
 
-        let yScaler = d3.scaleLinear()
-            .range([height-margin, margin])
-            .domain(yRange);
-
-        lineChart.append('g')
-            .attr('transform', `translate(0, ${height-margin})`)
-            .call(d3.axisBottom(xScaler).tickFormat(function(d, i) {
-                return d;
-            })
-            );
-
-        lineChart.append('g')
-            .attr('transform', `translate(${margin*2}, 0)`)
-            .call(d3.axisLeft(yScaler));
+        xLineAxis.call(d3.axisBottom(x))
+        yLineAxis.call(d3.axisLeft(y))
 
         lineChart
             .append("path")
@@ -282,8 +259,8 @@ loadData().then(data => {
             .attr("stroke", "steelblue")
             .attr("stroke-width", 1.5)
             .attr("d", d3.line()
-                .x(function(d) { return xScaler(d.year) })
-                .y(function(d) { return yScaler(d.value) })
+                .x(function(d) { return x(d.year) })
+                .y(function(d) { return y(d.value) })
             )
 
     }
