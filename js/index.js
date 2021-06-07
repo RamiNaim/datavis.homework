@@ -25,7 +25,8 @@ let year = '2000';
 let param = 'child-mortality';
 let lineParam = 'gdp';
 let highlighted = '';
-let selected;
+let selected = '';
+let selectedCountry = '';
 
 const x = d3.scaleLinear().range([margin*2, width-margin]);
 const y = d3.scaleLinear().range([height-margin, margin]);
@@ -50,6 +51,12 @@ const regions = ['asia', 'europe', 'africa', 'americas'];
 let regionData = {};
 let barData = [];
 let countryCount = {};
+
+d3.selection.prototype.moveToFront = function() {
+    return this.each(function(){
+        this.parentNode.appendChild(this);
+    });
+};
 
 loadData().then(data => {
 
@@ -82,6 +89,11 @@ loadData().then(data => {
         updateBar();
     });
 
+    d3.select('#p').on('change', function(){
+        lineParam = d3.select(this).property('value');
+        updateLinePlot(null);
+    });
+
     updateBar();
     updateScatterPlot();
 
@@ -94,12 +106,12 @@ loadData().then(data => {
             d3.select("#" + id).style("opacity", "1");
 
             let selectedRegion = id.slice(0, -4);
-            d3.selectAll("circle[region='" + selectedRegion + "']").style("opacity", "1");
+            d3.selectAll("circle[region='" + selectedRegion + "']").style("opacity", "0.8");
 
         } else {
             highlighted = "";
             d3.selectAll('rect').style("opacity", "1");
-            d3.selectAll('circle').style("opacity", "1");
+            d3.selectAll('circle').style("opacity", "0.8");
         }
     }
 
@@ -189,7 +201,90 @@ loadData().then(data => {
             .attr("cy", function (d) { return yScaler(d[yParam][year]); } )
             .attr("r", function (d) { return rScaler(d[rParam][year]); })
             .attr("region", function (d) { return d.region; } )
+            .attr("country", function (d) { return d.country; } )
             .style("fill", function (d) { return colorMap[d.region]; })
+            .style("opacity", 0.8)
+            .on('click', function () { updateLinePlot(this); })
+
+    }
+
+    function updateLinePlot(that){
+
+        if (that != null){
+            selected = that;
+            selectedCountry = that.attributes.country.nodeValue;
+        }
+
+        if (selected == ""){
+            if (that == null){ return; }
+            selected = that;
+            selectedCountry = that.attributes.country.nodeValue;
+        }
+
+        countryName.text("");
+        lineChart.selectAll("g, path").remove();
+
+        countryName.text(selectedCountry);
+
+        d3.select('#line-selector').style('display', '');
+        d3.selectAll('circle').style("stroke-width", 1);
+
+        d3.select(selected)
+            .moveToFront()
+            .style("stroke", '#000000')
+            .style("stroke-width", 2);
+
+        lineParam = d3.select('#p').property('value');
+        let countryData = [];
+        for (let idx in data){
+            if (data[idx].country == selectedCountry){
+                for (year in data[idx][lineParam]) {
+                    let val = parseFloat(data[idx][lineParam][year]);
+                    // let date = d3.timeParse("%Y-%m-%d")(year + "-01-01")
+                    let date = parseInt(year, 10)
+                    if  (!isNaN(val) && !isNaN(date)){
+                        countryData.push({
+                            'year': date,
+                            'value': val
+                        })
+
+                    }
+                }
+            }
+        }
+
+        let xRange = [d3.min(countryData, function(d) { return d.year; }), d3.max(countryData, function(d) { return d.year; })];
+        let yRange = [0, d3.max(countryData, function(d) { return +d.value; })];
+
+        let xScaler = d3.scaleLinear()
+            .range([margin*2, width-margin])
+            .domain(xRange);
+
+        let yScaler = d3.scaleLinear()
+            .range([height-margin, margin])
+            .domain(yRange);
+
+        lineChart.append('g')
+            .attr('transform', `translate(0, ${height-margin})`)
+            .call(d3.axisBottom(xScaler).tickFormat(function(d, i) {
+                return d;
+            })
+            );
+
+        lineChart.append('g')
+            .attr('transform', `translate(${margin*2}, 0)`)
+            .call(d3.axisLeft(yScaler));
+
+        lineChart
+            .append("path")
+            .datum(countryData)
+            .attr("fill", "none")
+            .attr("stroke", "steelblue")
+            .attr("stroke-width", 1.5)
+            .attr("d", d3.line()
+                .x(function(d) { return xScaler(d.year) })
+                .y(function(d) { return yScaler(d.value) })
+            )
 
     }
 
